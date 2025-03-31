@@ -11,14 +11,18 @@ interface UpdateOrderPayload {
     assignedTo?: string | null; // Optional assignment update (allow null to unassign)
 }
 
+
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { orderId: string } } // Access route parameters
+    { params }: { params: Promise<{ orderId: string }> } // Access route parameters
+    
 ) {
-    // Removed immediate destructuring: const { orderId } = params;
+    // Removed immediate destructuring:     const { orderId } = params;
+
+    const { orderId } = await params;
 
     // 1. Validate ObjectId using params.orderId
-    if (!mongoose.Types.ObjectId.isValid(params.orderId)) {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
         return NextResponse.json({ message: 'Invalid Order ID format' }, { status: 400 });
     }
 
@@ -41,8 +45,8 @@ export async function PATCH(
             // Explicitly define the allowed statuses (must match your Order schema enum)
             const allowedStatuses = ['Pending', 'Confirmed', 'InProgress', 'Ready', 'Delivered', 'Cancelled', 'Refunded'] as const;
             type OrderStatus = typeof allowedStatuses[number];
-            function isValidStatus(value: any): value is OrderStatus {
-                return allowedStatuses.includes(value);
+            function isValidStatus(value: string): value is OrderStatus {
+                return allowedStatuses.includes(value as OrderStatus);
             }
             if (!isValidStatus(status)) {
                  return NextResponse.json({ message: `Invalid status value: '${status}'. Allowed statuses are: ${allowedStatuses.join(', ')}` }, { status: 400 });
@@ -53,9 +57,9 @@ export async function PATCH(
              updateData.assignedTo = assignedTo === '' ? null : assignedTo; // Treat empty string as null/clear
         }
 
-        // 6. Find and Update Order using params.orderId
+        // 6. Find and Update Order using orderId
         const updatedOrder = await Order.findByIdAndUpdate(
-            params.orderId, // Use params.orderId directly
+            orderId, // Use orderId directly
             { $set: updateData },
             { new: true, runValidators: true }
         );
@@ -65,15 +69,15 @@ export async function PATCH(
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
 
-        // Log using params.orderId
-        console.log(`Order ${params.orderId} updated:`, updateData);
+        // Log using orderId
+        console.log(`Order ${orderId} updated:`, updateData);
 
         // 8. Return Success Response
         return NextResponse.json(updatedOrder, { status: 200 });
 
     } catch (error) {
-        // Log error using params.orderId
-        console.error(`Error updating order ${params.orderId}:`, error);
+        // Log error using orderId
+        console.error(`Error updating order ${orderId}:`, error);
         let errorMessage = 'Failed to update order.';
         let statusCode = 500;
 
@@ -99,26 +103,26 @@ export async function PATCH(
 // Optional: Add GET handler to fetch a single order by ID if needed later
 export async function GET(
     request: NextRequest,
-    { params }: { params: { orderId: string } }
-) {
-     // Access directly here too for consistency
-     if (!mongoose.Types.ObjectId.isValid(params.orderId)) {
-        return NextResponse.json({ message: 'Invalid Order ID format' }, { status: 400 });
-     }
-     await dbConnect();
-     try {
-         // Use params.orderId
-         const order = await Order.findById(params.orderId);
-         if (!order) {
-            return NextResponse.json({ message: 'Order not found' }, { status: 404 });
-         }
-         return NextResponse.json(order, { status: 200 });
-     } catch (error) {
-         // Use params.orderId
-         console.error(`Error fetching order ${params.orderId}:`, error);
-         return NextResponse.json({ message: 'Failed to fetch order' }, { status: 500 });
-     }
-}
+     { params }: { params: Promise<{ orderId: string }> } // // Use 'context' instead of destructuring
+  ) {
+    const { orderId } = await params;  // Then extract orderId from context.params
+    
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return NextResponse.json({ message: 'Invalid Order ID format' }, { status: 400 });
+    }
+    
+    await dbConnect();
+    try {
+      const order = await Order.findById(orderId);
+      if (!order) {
+        return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+      }
+      return NextResponse.json(order, { status: 200 });
+    } catch (error) {
+      console.error(`Error fetching order ${orderId}:`, error);
+      return NextResponse.json({ message: 'Failed to fetch order' }, { status: 500 });
+    }
+  }
 
 // Add DELETE or other methods if needed, returning 405 for now
 // export async function DELETE(...) { ... }

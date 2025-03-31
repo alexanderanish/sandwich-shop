@@ -22,7 +22,7 @@ export default function MainNav() {
                     <Link href="/" className="mr-6 flex items-center space-x-2">
                         {/* Optional: Add an SVG logo or image here */}
                         <span className="font-bold inline-block">
-                            Rafiki's Kitchen
+                            Rafiki&apos;s Kitchen
                         </span>
                     </Link>
                     <div className="flex items-center space-x-4 lg:space-x-6">
